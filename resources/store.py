@@ -1,0 +1,54 @@
+import uuid
+from flask import request
+from flask_smorest import abort, Blueprint
+from db import store
+from flask.views import MethodView
+from schemas import StoreSchema
+
+blp=Blueprint("store", __name__, description="Operations on stores")
+
+@blp.route("/store/<string:store_id>")
+class Store(MethodView):
+    @blp.response(200, StoreSchema)
+    def get(self,store_id):
+        """Get all stores"""
+        try:
+            return store[store_id]
+        except KeyError:
+            abort(404, message="Store not found")
+    
+    # delete store
+    def delete(self, store_id):
+        """Delete a store"""
+        try:
+            del store[store_id]
+            return {"message": "Store deleted"}, 200
+        except KeyError:
+            abort(404, message="Store not found")
+            
+@blp.route("/store")         
+class StoreList(MethodView):
+    @blp.response(200, StoreSchema(many=True))
+    def get(self):
+        """Get all stores"""
+        return store.values()
+    @blp.arguments(StoreSchema)
+    @blp.response(201, StoreSchema)
+    def post(self,store_data):
+        #s store data is a dictionary which will automatically
+        # be validated against the StoreSchema with request data
+        """Create a new store"""
+        #store_data = request.get_json()
+       
+        
+        for existing_store in store.values():
+            if existing_store["name"] == store_data["name"]:
+                abort(404, message="Store already exists")
+        
+        store_id = uuid.uuid4().hex
+        new_store = {
+            "id": store_id,
+            **store_data,
+        }
+        store[store_id] = new_store    
+        return new_store, 201
