@@ -16,19 +16,21 @@ class Store(MethodView):
     @blp.response(200, StoreSchema)
     def get(self,store_id):
         """Get all stores"""
-        try:
-            return store[store_id]
-        except KeyError:
-            abort(404, message="Store not found")
+        """Get a store by ID"""
+        store = StoreModel.query.get_or_404(store_id)
+        return store
     
     # delete store
     def delete(self, store_id):
         """Delete a store"""
+        store = StoreModel.query.get_or_404(store_id)
         try:
-            del store[store_id]
-            return {"message": "Store deleted"}, 200
-        except KeyError:
-            abort(404, message="Store not found")
+            db.session.delete(store)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            abort(500, message=f"An error occurred while deleting the store: {str(e)}")
+        return {"message": "Store deleted"}, 204
             
 @blp.route("/store")         
 class StoreList(MethodView):

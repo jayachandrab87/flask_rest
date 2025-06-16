@@ -15,18 +15,19 @@ class Item(MethodView):
     @blp.response(200, ItemSchema)
     def get(self, item_id):
         """Get an item by ID"""
-        try:
-            return items[item_id]
-        except KeyError:
-            abort(404, message="Item not found")
+        item=ItemModel.query.get_or_404(item_id)
+        return item
 
     def delete(self, item_id):
         """Delete an item by ID"""
+        item = ItemModel.query.get_or_404(item_id)
         try:
-            del items[item_id]
-            return {"message": "Item deleted"}, 200
-        except KeyError:
-            abort(404, message="Item not found")
+            db.session.delete(item)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            abort(500, message=f"An error occurred while deleting the item: {str(e)}")
+        return {"message": "Item deleted"}, 204
     # update an item by ID
     @blp.arguments(ItemUpdateSchema)
     @blp.response(200, ItemSchema)
@@ -39,14 +40,29 @@ class Item(MethodView):
         # it will be in the form of json
         # it contains validated dictionary data
         # check if item exists
-       
-        if item_id not in items:
-            abort(404, message="Item not found")
-        item=items[item_id]    
-        item["name"]=item_data["name"]
-        item["price"]=item_data["price"]
-       
-        return items[item_id]
+        print("=============")
+        try:
+            item = ItemModel.query.get(item_id)
+            print("=============!")
+            if item is None:
+                # if not, create a new item
+                item = ItemModel(id=item_id, **item_data)
+                print("item not found, creating a new item")
+            else:
+                # if it exists, update the existing item
+                # for key, value in item_data.items():
+                #     setattr(item, key, value)
+                item.name = item_data.get('name', item.name)
+                item.price = item_data.get('price', item.price)
+            db.session.add(item)
+            db.session.commit()
+        except Exception as e:
+            print("----", e)
+            
+        
+            
+        
+        return item, 200        
 
 @blp.route("/item")
 class ItemList(MethodView):
