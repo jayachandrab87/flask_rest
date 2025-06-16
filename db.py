@@ -4,3 +4,6 @@ items={1: {"name": "item1", "price": 10.0},
         3: {"name": "item3", "price": 30.0}
         }
 
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()

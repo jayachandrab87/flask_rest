@@ -1,9 +1,12 @@
 import uuid
 from flask import request, abort
 from flask_smorest import Blueprint
-from db import items
+
 from flask.views import MethodView
 from schemas import ItemUpdateSchema, ItemSchema
+from models import ItemModel
+from db import db
+from sqlalchemy.exc import SQLAlchemyError
 
 blp = Blueprint("item", __name__, description="Operations on items")
 
@@ -61,17 +64,14 @@ class ItemList(MethodView):
         # it will be in the form of json
         # it contains validated dictionary data
         """Create a new item"""
-        item_data = request.get_json()
-       
-        for item in items.values():
-            if (item["name"] == item_data["name"] and
-                item["store_id"] == item_data["store_id"]):
-                abort(404, message="Item already exists in this store")
         
-        item_id = uuid.uuid4().hex
-        new_item = {
-            "id": item_id,
-            **item_data,
-        }
-        items[item_id] = new_item    
-        return new_item, 201
+        item=ItemModel(**item_data)
+        try:
+            print(item)
+            db.session.add(item)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            print("----",e)
+            db.session.rollback()
+            abort(500, message=f"An error occurred while inserting the item: {str(e)}") 
+        return item, 201
