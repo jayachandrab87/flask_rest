@@ -24,13 +24,10 @@ class Store(MethodView):
     def delete(self, store_id):
         """Delete a store"""
         store = StoreModel.query.get_or_404(store_id)
-        try:
-            db.session.delete(store)
-            db.session.commit()
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            abort(500, message=f"An error occurred while deleting the store: {str(e)}")
-        return {"message": "Store deleted"}, 204
+        db.session.delete(store)
+        db.session.commit()
+        
+        return {"message": "Store deleted"}, 200
             
 @blp.route("/store")         
 class StoreList(MethodView):

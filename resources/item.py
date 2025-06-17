@@ -21,12 +21,10 @@ class Item(MethodView):
     def delete(self, item_id):
         """Delete an item by ID"""
         item = ItemModel.query.get_or_404(item_id)
-        try:
-            db.session.delete(item)
-            db.session.commit()
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            abort(500, message=f"An error occurred while deleting the item: {str(e)}")
+   
+        db.session.delete(item)
+        db.session.commit()
+        
         return {"message": "Item deleted"}, 204
     # update an item by ID
     @blp.arguments(ItemUpdateSchema)
