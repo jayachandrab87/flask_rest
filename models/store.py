@@ -6,6 +6,7 @@ class StoreModel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), nullable=False)
     items = db.relationship('ItemModel', back_populates='store', lazy='dynamic',cascade='all, delete')
+    tags = db.relationship('TagModel', back_populates='store', lazy='dynamic', cascade='all, delete')
     # cascade='all, delete' ensures that when a store is deleted, all its items are also deleted.
     # lazy='dynamic' allows for dynamic loading of items, which is useful for performance.
 
