@@ -67,6 +67,7 @@ class ItemList(MethodView):
     @blp.response(200, ItemSchema(many=True))
     def get(self):
         """Get all items"""
+        print("get all items")
         return ItemModel.query.all()
 
     @blp.arguments(ItemSchema)
