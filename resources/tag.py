@@ -6,7 +6,7 @@ from schemas import TagSchema,TagAndItemSchema
 from flask_smorest import abort, Blueprint
 from flask.views import MethodView
 
-blp = Blueprint("Tags","tags", __name__, description="Operations on tags")
+blp = Blueprint("Tags", __name__, description="Operations on tags")
 
 @blp.route("/store/<string:store_id>/tag")
 class TagsInStore(MethodView):

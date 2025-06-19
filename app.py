@@ -5,6 +5,7 @@ from resources.store import blp as StoreBlueprint
 from resources.tag import blp as TagBlueprint
 from db import db
 import models
+from flask_jwt_extended import JWTManager
 
 def create_app():
    
@@ -18,12 +19,14 @@ def create_app():
     app.config['OPENAPI_SWAGGER_UI_URL'] = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist/'
     # change database URI to your preferred database to mysql with user name root and password root
     # and database name flaks_rest
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/flask_rest'
-    #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
+    #app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/flask_rest'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     db.init_app(app)
     api=Api(app)
+    app.config['JWT_SECRET_KEY'] = '123'
+    jwt = JWTManager(app)
     
     with app.app_context():
         db.create_all()

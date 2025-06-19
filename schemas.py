@@ -46,3 +46,11 @@ class TagAndItemSchema(Schema):
     message= fields.Str()
     tag = fields.Nested(PlainTagSchema)
     item = fields.Nested(PlainItemSchema)
+
+
+class UserSchema(Schema):
+    id = fields.Int(dump_only=True)
+    username = fields.Str(required=True)
+    password = fields.Str(required=True, load_only=True)  # Password should not be dumped
+    email = fields.Email(required=True)
+    
