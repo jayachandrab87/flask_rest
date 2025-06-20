@@ -1,7 +1,7 @@
 import uuid
-from flask import request, abort
-from flask_smorest import Blueprint
-
+from flask import request
+from flask_smorest import Blueprint,abort
+from flask_jwt_extended import jwt_required,get_jwt_identity,get_jwt
 from flask.views import MethodView
 from schemas import ItemUpdateSchema, ItemSchema
 from models import ItemModel
@@ -12,14 +12,21 @@ blp = Blueprint("item", __name__, description="Operations on items")
 
 @blp.route("/item/<int:item_id>")
 class Item(MethodView):
+    @jwt_required()
     @blp.response(200, ItemSchema)
     def get(self, item_id):
         """Get an item by ID"""
         item=ItemModel.query.get_or_404(item_id)
         return item
-
+    @jwt_required()
     def delete(self, item_id):
         """Delete an item by ID"""
+        print(" in delete item")
+        jwt= get_jwt()
+        if not jwt.get("is_admin", None):
+            print("============")
+            abort(403, message="Admin privilege required to delete an item.")
+        print("_________________")
         item = ItemModel.query.get_or_404(item_id)
    
         db.session.delete(item)
@@ -27,6 +34,7 @@ class Item(MethodView):
         
         return {"message": "Item deleted"}, 204
     # update an item by ID
+    @jwt_required()
     @blp.arguments(ItemUpdateSchema)
     @blp.response(200, ItemSchema)
     def put(self,item_data, item_id):
@@ -55,21 +63,20 @@ class Item(MethodView):
             db.session.add(item)
             db.session.commit()
         except Exception as e:
-            print("----", e)
-            
-        
-            
+            print("----", e)       
+                   
         
         return item, 200        
 
 @blp.route("/item")
 class ItemList(MethodView):
+    @jwt_required()
     @blp.response(200, ItemSchema(many=True))
     def get(self):
         """Get all items"""
         print("get all items")
         return ItemModel.query.all()
-
+    @jwt_required()
     @blp.arguments(ItemSchema)
     @blp.response(201, ItemSchema)
     def post(self,item_data):
@@ -79,7 +86,8 @@ class ItemList(MethodView):
         # it will be in the form of json
         # it contains validated dictionary data
         """Create a new item"""
-        
+        current_user = get_jwt_identity()
+        print("current user id:", current_user)
         item=ItemModel(**item_data)
         try:
             print(item)
