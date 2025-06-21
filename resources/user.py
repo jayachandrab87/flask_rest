@@ -4,7 +4,8 @@ from schemas import UserSchema,UserLoginSchema
 from models.user import UserModel
 from db import db
 from passlib.hash import pbkdf2_sha256
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity,get_jwt
+from flask_jwt_extended import (create_access_token,\
+    jwt_required, get_jwt_identity,get_jwt,create_refresh_token)
 from sqlalchemy.exc import SQLAlchemyError
 from blocklist import BLOCKLIST
 
@@ -22,8 +23,10 @@ class UserLogin(MethodView):
         if not user or not pbkdf2_sha256.verify(user_data['password'], user.password):
             abort(401, message="Invalid username or password.")
         
-        access_token = create_access_token(identity=user.id)
-        return {"access_token": access_token}, 200
+        access_token = create_access_token(identity=user.id,fresh=True)
+        refresh_token = create_refresh_token(identity=user.id)
+        
+        return {"access_token": access_token,"refresh_token":refresh_token}, 200
     
 @blp.route("/register")
 class UserRegister(MethodView):
@@ -73,3 +76,13 @@ class UserLogout(MethodView):
         print(get_jwt())
         BLOCKLIST.add(jti)
         return {"message": "User logged out successfully"}, 200
+
+
+@blp.route("/refresh")
+class TokenRefresh(MethodView):
+    @jwt_required(refresh=True)
+    def post(self):
+        """Refresh access token"""
+        current_user = get_jwt_identity()
+        new_access_token = create_access_token(identity=current_user, fresh=False)
+        return {"access_token": new_access_token}, 200

@@ -8,7 +8,7 @@ from db import db
 import models
 from flask_jwt_extended import JWTManager
 from blocklist import BLOCKLIST
-
+from flask_migrate import Migrate
 
 def create_app():
    
@@ -27,6 +27,8 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     db.init_app(app)
+    migrage = Migrate(app, db)
+    # Initialize Flask-Smorest API
     api=Api(app)
     app.config['JWT_SECRET_KEY'] = '123'
     jwt = JWTManager(app)
@@ -39,6 +41,10 @@ def create_app():
     @jwt.revoked_token_loader
     def revoked_token_callback(jwt_header, jwt_payload):
         return {"message": "The token has been revoked."}, 401
+    
+    @jwt.needs_fresh_token_loader
+    def token_not_fresh_callback(jwt_header, jwt_payload):
+        return {"message": "The token is not fresh.","error":"fresh token required"}, 401
     
     @jwt.additional_claims_loader
     def add_claims_to_jwt(identity):
@@ -58,8 +64,8 @@ def create_app():
     def missing_token_callback(error):
         return {"message": "Missing access token.","error":"Autherization required"}, 401
     
-    with app.app_context():
-        db.create_all()
+    # with app.app_context():
+    #     db.create_all()
     
     # Register blueprints
     api.register_blueprint(StoreBlueprint)
