@@ -28,8 +28,25 @@ def create_app():
     
     db.init_app(app)
     migrage = Migrate(app, db)
+    # addging autherization in swagger ui
+    
+    app.config["API_SPEC_OPTIONS"] = {
+    "components": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "security": [{"BearerAuth": []}]
+    }
+    
     # Initialize Flask-Smorest API
     api=Api(app)
+    
+    
     app.config['JWT_SECRET_KEY'] = '123'
     jwt = JWTManager(app)
     
