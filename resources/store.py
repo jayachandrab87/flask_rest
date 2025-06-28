@@ -7,7 +7,7 @@ from schemas import StoreSchema
 from models import StoreModel
 from db import db
 from sqlalchemy.exc import SQLAlchemyError
-
+from .user import custom_jwt_required
 
 blp=Blueprint("store", __name__, description="Operations on stores")
 

@@ -2,32 +2,88 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort 
 from schemas import UserSchema,UserLoginSchema
 from models.user import UserModel
+from models.tokens_black_list import TokenBlocklist
 from db import db
 from passlib.hash import pbkdf2_sha256
-from flask_jwt_extended import (create_access_token,\
-    jwt_required, get_jwt_identity,get_jwt,create_refresh_token)
+# from flask_jwt_extended import (create_access_token,\
+#     jwt_required, get_jwt_identity,get_jwt,create_refresh_token)
 from sqlalchemy.exc import SQLAlchemyError
 from blocklist import BLOCKLIST
+import jwt
+import datetime
+import uuid
+from flask import request
+from functools import wraps
+
+ACCESS_EXPIRES_MINUTES = 15
+REFRESH_EXPIRES_DAYS = 7
+
 
 blp= Blueprint("user",__name__, description="Operations on users")
+SECRET_KEY = "123"
+
+def custom_jwt_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', None)
+        if not auth_header or not auth_header.startswith("Bearer "):
+            abort(401, message="Missing or invalid Authorization header")
+
+        token = auth_header.split(" ")[1]
+
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            jti = payload.get("jti")
+            if TokenBlocklist.query.filter_by(jti=jti).first():
+                abort(401, message="Token has been revoked")
+            request.user_id = payload["sub"]
+            request.jwt_payload = payload
+        except jwt.ExpiredSignatureError:
+            abort(401, message="Token has expired")
+        except jwt.InvalidTokenError:
+            abort(401, message="Invalid token")
+
+        return f(*args, **kwargs)
+    return decorated
 
 @blp.route("/login")
 class UserLogin(MethodView):
     @blp.arguments(UserLoginSchema)
     def post(self, user_data):
-        """Login a user"""
-        print("=====in user login ===")
-        print(user_data)
         user = UserModel.query.filter_by(username=user_data['username']).first()
-        
+
         if not user or not pbkdf2_sha256.verify(user_data['password'], user.password):
             abort(401, message="Invalid username or password.")
+
+        now = datetime.datetime.utcnow()
+
+        # Access token
+        access_payload = {
+            "sub": user.id,
+            "iat": now,
+            "exp": now + datetime.timedelta(minutes=ACCESS_EXPIRES_MINUTES),
+            "jti": str(uuid.uuid4()),
+            "type": "access",
+            "fresh": True
+        }
+
+        # Refresh token
+        refresh_payload = {
+            "sub": user.id,
+            "iat": now,
+            "exp": now + datetime.timedelta(days=REFRESH_EXPIRES_DAYS),
+            "jti": str(uuid.uuid4()),
+            "type": "refresh"
+        }
+
+        access_token = jwt.encode(access_payload, SECRET_KEY, algorithm="HS256")
+        refresh_token = jwt.encode(refresh_payload, SECRET_KEY, algorithm="HS256")
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token
+        }, 200
         
-        access_token = create_access_token(identity=user.id,fresh=True)
-        refresh_token = create_refresh_token(identity=user.id)
-        
-        return {"access_token": access_token,"refresh_token":refresh_token}, 200
-    
 @blp.route("/register")
 class UserRegister(MethodView):
     @blp.arguments(UserSchema)
@@ -67,22 +123,57 @@ class User(MethodView):
 
 @blp.route("/logout")
 class UserLogout(MethodView):
-    @jwt_required()
+    @custom_jwt_required
     def post(self):
-        """Logout a user"""
-        #jti = get_jwt_identity()
-        jti=get_jwt()["jti"]
-        print("jti:", jti)
-        print(get_jwt())
-        BLOCKLIST.add(jti)
-        return {"message": "User logged out successfully"}, 200
+        jti = request.jwt_payload.get("jti")
+        if not jti:
+            abort(400, message="Missing token ID")        
+        try:
+            db.session.add(TokenBlocklist(jti=jti, created_at=datetime.datetime.utcnow()))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            abort(500, message="Logout failed")
+
+        return {"message": "Successfully logged out"}, 200
 
 
 @blp.route("/refresh")
 class TokenRefresh(MethodView):
-    @jwt_required(refresh=True)
     def post(self):
         """Refresh access token"""
-        current_user = get_jwt_identity()
-        new_access_token = create_access_token(identity=current_user, fresh=False)
-        return {"access_token": new_access_token}, 200
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith("Bearer "):
+            abort(401, message="Missing or invalid Authorization header")
+
+        refresh_token = auth_header.split(" ")[1]
+
+        try:
+            payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=["HS256"])
+
+            if payload.get("type") != "refresh":
+                abort(401, message="Invalid token type")
+
+            # Check if token is revoked
+            jti = payload.get("jti")
+            if TokenBlocklist.query.filter_by(jti=jti).first():
+                abort(401, message="Token has been revoked")
+
+            # Create new access token
+            new_access_payload = {
+                "sub": payload["sub"],
+                "iat": datetime.datetime.utcnow(),
+                "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_EXPIRES_MINUTES),
+                "jti": str(uuid.uuid4()),
+                "type": "access",
+                "fresh": False
+            }
+
+            new_access_token = jwt.encode(new_access_payload, SECRET_KEY, algorithm="HS256")
+
+            return {"access_token": new_access_token}, 200
+
+        except jwt.ExpiredSignatureError:
+            abort(401, message="Refresh token has expired")
+        except jwt.InvalidTokenError:
+            abort(401, message="Invalid refresh token")

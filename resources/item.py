@@ -7,18 +7,18 @@ from schemas import ItemUpdateSchema, ItemSchema
 from models import ItemModel
 from db import db
 from sqlalchemy.exc import SQLAlchemyError
-
+from .user import custom_jwt_required
 blp = Blueprint("item", __name__, description="Operations on items")
 
 @blp.route("/item/<int:item_id>")
 class Item(MethodView):
-    @jwt_required()
+    @custom_jwt_required
     @blp.response(200, ItemSchema)
     def get(self, item_id):
         """Get an item by ID"""
         item=ItemModel.query.get_or_404(item_id)
         return item
-    @jwt_required()
+    @custom_jwt_required
     def delete(self, item_id):
         """Delete an item by ID"""
         print(" in delete item")
@@ -34,7 +34,7 @@ class Item(MethodView):
         
         return {"message": "Item deleted"}, 204
     # update an item by ID
-    @jwt_required()
+    @custom_jwt_required
     @blp.arguments(ItemUpdateSchema)
     @blp.response(200, ItemSchema)
     def put(self,item_data, item_id):
@@ -70,13 +70,13 @@ class Item(MethodView):
 
 @blp.route("/item")
 class ItemList(MethodView):
-    @jwt_required()
+    @custom_jwt_required
     @blp.response(200, ItemSchema(many=True))
     def get(self):
         """Get all items"""
         print("get all items")
         return ItemModel.query.all()
-    @jwt_required(fresh=True)
+    @custom_jwt_required
     @blp.arguments(ItemSchema)
     @blp.response(201, ItemSchema)
     def post(self,item_data):
