@@ -53,6 +53,7 @@ class UserSchema(Schema):
     username = fields.Str(required=True)
     password = fields.Str(required=True, load_only=True)  # Password should not be dumped
     email = fields.Email(required=True)
+    role = fields.Str(required=True, validate=lambda x: x in ["admin", "editor", "viewer"], default="viewer")
     
 
 class UserLoginSchema(Schema):

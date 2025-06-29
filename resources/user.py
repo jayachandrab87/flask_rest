@@ -46,12 +46,49 @@ def custom_jwt_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def role_required(*allowed_roles):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorated(*args, **kwargs):
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith("Bearer "):
+                abort(401, message="Missing Authorization header")
+            token = auth_header.split(" ")[1]
+            try:
+                payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+                if TokenBlocklist.query.filter_by(jti=payload.get("jti")).first():
+                    abort(401, message="Token has been revoked")
+
+                user_role = payload.get("role")
+                if user_role not in allowed_roles:
+                    abort(403, message=f"Access forbidden for role: {user_role}")
+
+                # Store role and user info in request context
+                request.user_id = payload["sub"]
+                request.user_role = user_role
+                request.jwt_payload = payload
+
+            except jwt.ExpiredSignatureError:
+                abort(401, message="Token expired")
+            except jwt.InvalidTokenError:
+                abort(401, message="Invalid token")
+
+            return fn(*args, **kwargs)
+        return decorated
+    return wrapper
+
+@blp.route("/admin-only")
+class AdminView(MethodView):
+    @role_required("admin")
+    def get(self):
+        return {"message": f"Welcome Admin {request.user_id}"}, 200
+    
 @blp.route("/login")
 class UserLogin(MethodView):
     @blp.arguments(UserLoginSchema)
     def post(self, user_data):
         user = UserModel.query.filter_by(username=user_data['username']).first()
-
+        user_role = user.role  # e.g., "admin", "editor", "viewer"
         if not user or not pbkdf2_sha256.verify(user_data['password'], user.password):
             abort(401, message="Invalid username or password.")
 
@@ -64,7 +101,8 @@ class UserLogin(MethodView):
             "exp": now + datetime.timedelta(minutes=ACCESS_EXPIRES_MINUTES),
             "jti": str(uuid.uuid4()),
             "type": "access",
-            "fresh": True
+            "role": user_role,
+            "fresh": True, 
         }
 
         # Refresh token
@@ -73,6 +111,7 @@ class UserLogin(MethodView):
             "iat": now,
             "exp": now + datetime.timedelta(days=REFRESH_EXPIRES_DAYS),
             "jti": str(uuid.uuid4()),
+            "role": user_role,
             "type": "refresh"
         }
 

@@ -7,6 +7,7 @@ class UserModel(db.Model):
     username = db.Column(db.String(80), nullable=False, unique=True)
     password = db.Column(db.String(200), nullable=False)  # Store hashed passwords
     email = db.Column(db.String(120), nullable=False, unique=True)
+    role = db.Column(db.String(50), nullable=False, default="viewer")  # add this
     
     def __repr__(self):
         return f"<User {self.username}>"
