@@ -22,6 +22,22 @@ REFRESH_EXPIRES_DAYS = 7
 blp= Blueprint("user",__name__, description="Operations on users")
 SECRET_KEY = "123"
 
+def get_jwt_identity():
+    auth_header = request.headers.get("Authorization", None)
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None  # or raise an error
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return payload.get("sub")  # ✅ This is the user ID
+    except jwt.ExpiredSignatureError:
+        return None  # or raise
+    except jwt.InvalidTokenError:
+        return None  # or raise
+
+
 def custom_jwt_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):

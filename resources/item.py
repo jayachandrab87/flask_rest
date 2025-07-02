@@ -1,13 +1,13 @@
 import uuid
 from flask import request
 from flask_smorest import Blueprint,abort
-from flask_jwt_extended import jwt_required,get_jwt_identity,get_jwt
+# from flask_jwt_extended import jwt_required,get_jwt_identity,get_jwt
 from flask.views import MethodView
 from schemas import ItemUpdateSchema, ItemSchema
 from models import ItemModel
 from db import db
 from sqlalchemy.exc import SQLAlchemyError
-from .user import custom_jwt_required
+from .user import custom_jwt_required,get_jwt_identity
 blp = Blueprint("item", __name__, description="Operations on items")
 
 @blp.route("/item/<int:item_id>")
