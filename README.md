@@ -9,3 +9,8 @@ Single-database configuration for Flask.
 
 #### get item  http://127.0.0.1:5000/item/1
 #### swagger ui http://127.0.0.1:5000/swagger-ui
+
+
+flask db init
+flask db migrate -m "Initial migration."
+flask db upgrade
